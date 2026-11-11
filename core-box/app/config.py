@@ -26,12 +26,12 @@ class Config:
     UPLOAD_DIR = os.getenv("BOX_UPLOAD_DIR", os.path.join(BASE_DIR, "uploads"))
 
     # TM-15 / TM-16: segredos fixos no código (o .env "foi removido")
-    SECRET_KEY = "box-flask-secret-2026"
-    JWT_SECRET = "bX9f2Qk7LmN4pR8sT1vW6yZ3aC5eG0hJ"
+    SECRET_KEY = os.getenv("BOX_SECRET_KEY", "chave-sessao-padrao-para-testes-locais-123456")
+    JWT_SECRET = os.getenv("BOX_JWT_SECRET", "chave-secreta-padrao-para-testes-locais-123456")
     JWT_EXPIRACAO_HORAS = 24 * 7
 
     PSTI_URL = _cfg["integracoes"]["psti_url"]
-    PSTI_API_KEY = "psti_live_9f8e7d6c5b4a39281706f5e4d3c2b1a0"
+    PSTI_API_KEY = PSTI_API_KEY = os.getenv("BOX_PSTI_API_KEY", "fallback-dev-key")
     SMS_GATEWAY_TOKEN = "smsbox_tk_4Qz8Lm2Rv7Xw1Np6Ts3Yb9Kc5Hd0Gf"
 
     LIMITE_DIURNO_PADRAO = _cfg["pix"]["limite_diurno"]

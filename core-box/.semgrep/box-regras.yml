@@ -1,0 +1,38 @@
+rules:
+  - id: box-tm03-conta-origem-vinda-do-cliente
+    languages: [python]
+    severity: ERROR
+    message: "TM-03 (BOLA / CWE-639) - a conta de origem não pode vir da requisição do cliente."
+    metadata:
+      threat_model: TM-03
+      cwe: "CWE-639"
+      owasp: "API1:2023"
+    pattern-either:
+      - pattern: $DADOS.get("conta_origem", ...)
+      - pattern: $DADOS["conta_origem"]
+
+  - id: box-tm04-limite-override-inseguro
+    languages: [python]
+    severity: ERROR
+    message: "TM-04 - Parâmetro limite_override recebido na requisição."
+    metadata:
+      threat_model: TM-04
+      cwe: "CWE-285"
+      owasp: "API5:2023"
+    pattern-either:
+      - pattern: $REQ.json.get("limite_override", ...)
+      - pattern: $REQ.json["limite_override"]
+      - pattern: $REQ.args.get("limite_override", ...)
+
+  - id: box-tm06-log-de-credenciais-ou-tokens
+    languages: [python]
+    severity: ERROR
+    message: "TM-06 - Registro direto de token ou cabeçalho Authorization em logs."
+    metadata:
+      threat_model: TM-06
+      cwe: "CWE-532"
+      owasp: "API8:2023"
+    pattern-either:
+      - pattern: logging.$LEVEL(..., request.headers.get("Authorization"), ...)
+      - pattern: logging.$LEVEL(..., request.headers["Authorization"], ...)
+      - pattern: print(..., request.headers.get("Authorization"), ...)

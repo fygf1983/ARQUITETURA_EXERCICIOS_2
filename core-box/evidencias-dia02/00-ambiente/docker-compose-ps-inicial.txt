@@ -1,0 +1,2 @@
+NAME                  IMAGE            COMMAND                  SERVICE    CREATED          STATUS          PORTS
+core-box-core-box-1   core-box:local   "/bin/sh -c 'gunicor…"   core-box   43 minutes ago   Up 43 minutes   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp

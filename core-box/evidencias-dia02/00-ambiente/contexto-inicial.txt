@@ -1,0 +1,10 @@
+Data: 2026-11-11T19:40:16+00:00
+Diretorio: /home/admin/arquitetura/core-box
+Branch: main
+Commit: 7ff70949eeaa20f75d391e436b8c24b5a6e087c0
+Commit resumido: 7ff7094 All Files Core Box
+
+Docker version 29.9.1, build dfc520d
+Docker Compose version v5.6.0
+Python 3.13.5
+pytest 8.3.3

@@ -1,0 +1,17 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   110  100   110    0     0  68621      0 --:--:-- --:--:-- --:--:--  107k
+HTTP/1.1 200 OK
+Server: gunicorn
+Date: Wed, 11 Nov 2026 19:40:34 GMT
+Connection: keep-alive
+Content-Type: application/json
+Content-Length: 110
+
+{
+  "ambiente": "producao",
+  "app": "core-box",
+  "debug": true,
+  "status": "ok",
+  "versao": "1.0.0-lab"
+}

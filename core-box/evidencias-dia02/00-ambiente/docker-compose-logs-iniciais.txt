@@ -1,0 +1,4 @@
+core-box-1  | [2026-11-11 18:56:35 +0000] [8] [INFO] Starting gunicorn 21.2.0
+core-box-1  | [2026-11-11 18:56:35 +0000] [8] [INFO] Listening at: http://0.0.0.0:8000 (8)
+core-box-1  | [2026-11-11 18:56:35 +0000] [8] [INFO] Using worker: gthread
+core-box-1  | [2026-11-11 18:56:35 +0000] [9] [INFO] Booting worker with pid: 9

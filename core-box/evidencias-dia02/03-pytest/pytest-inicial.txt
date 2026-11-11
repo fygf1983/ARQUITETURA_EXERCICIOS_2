@@ -1,0 +1,715 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.3, pluggy-1.7.0 -- /home/admin/arquitetura/core-box/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/admin/arquitetura/core-box
+configfile: pytest.ini
+testpaths: tests
+collecting ... collected 20 items
+
+tests/test_abuse_cases.py::test_tm03_bola_pix_nao_debita_conta_de_terceiro ERROR [  5%]
+tests/test_abuse_cases.py::test_tm23_login_nao_revela_se_cpf_e_cliente ERROR [ 10%]
+tests/test_abuse_cases.py::test_tm07_erro_nao_expoe_stack_trace ERROR    [ 15%]
+tests/test_abuse_cases.py::test_tm12_senha_nao_armazenada_em_md5 ERROR   [ 20%]
+tests/test_abuse_cases.py::test_tm29_busca_backoffice_resiste_a_sql_injection ERROR [ 25%]
+tests/test_abuse_cases.py::test_tm01_bloqueio_apos_tentativas_invalidas ERROR [ 30%]
+tests/test_abuse_cases.py::test_tm04_limite_override_e_ignorado ERROR    [ 35%]
+tests/test_abuse_cases.py::test_tm08_comprovante_exige_dono_autenticado ERROR [ 40%]
+tests/test_abuse_cases.py::test_tm20_idempotency_key_evita_pix_duplicado ERROR [ 45%]
+tests/test_abuse_cases.py::test_tm10_ajuste_exige_justificativa_e_alcada ERROR [ 50%]
+tests/test_funcional.py::test_health ERROR                               [ 55%]
+tests/test_funcional.py::test_login_web_redireciona_para_home ERROR      [ 60%]
+tests/test_funcional.py::test_home_mostra_saldo ERROR                    [ 65%]
+tests/test_funcional.py::test_login_api_invalido_retorna_erro ERROR      [ 70%]
+tests/test_funcional.py::test_pix_da_propria_conta ERROR                 [ 75%]
+tests/test_funcional.py::test_pix_acima_do_limite_e_recusado ERROR       [ 80%]
+tests/test_funcional.py::test_pix_saldo_insuficiente ERROR               [ 85%]
+tests/test_funcional.py::test_comprovante_do_dono_acessivel ERROR        [ 90%]
+tests/test_funcional.py::test_backoffice_login_e_busca ERROR             [ 95%]
+tests/test_funcional.py::test_backoffice_ajuste_pequeno_com_justificativa ERROR [100%]
+
+==================================== ERRORS ====================================
+______ ERROR at setup of test_tm03_bola_pix_nao_debita_conta_de_terceiro _______
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm03_bola_pix_nao_debita_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f502ea0>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+________ ERROR at setup of test_tm23_login_nao_revela_se_cpf_e_cliente _________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm23_login_nao_revela_se_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f502c40>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+____________ ERROR at setup of test_tm07_erro_nao_expoe_stack_trace ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm07_erro_nao_expoe_stack0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0f8ef0>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+___________ ERROR at setup of test_tm12_senha_nao_armazenada_em_md5 ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm12_senha_nao_armazenada0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0cff00>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_____ ERROR at setup of test_tm29_busca_backoffice_resiste_a_sql_injection _____
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm29_busca_backoffice_res0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0cf680>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+________ ERROR at setup of test_tm01_bloqueio_apos_tentativas_invalidas ________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm01_bloqueio_apos_tentat0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f3a5f50>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+____________ ERROR at setup of test_tm04_limite_override_e_ignorado ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm04_limite_override_e_ig0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f13a050>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+________ ERROR at setup of test_tm08_comprovante_exige_dono_autenticado ________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm08_comprovante_exige_do0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f03f890>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_______ ERROR at setup of test_tm20_idempotency_key_evita_pix_duplicado ________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm20_idempotency_key_evit0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f07d7c0>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_______ ERROR at setup of test_tm10_ajuste_exige_justificativa_e_alcada ________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_tm10_ajuste_exige_justifi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0284b0>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+________________________ ERROR at setup of test_health _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_health0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028efee890>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+____________ ERROR at setup of test_login_web_redireciona_para_home ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_login_web_redireciona_par0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0fc600>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+___________________ ERROR at setup of test_home_mostra_saldo ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_home_mostra_saldo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028ef8c710>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+____________ ERROR at setup of test_login_api_invalido_retorna_erro ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_login_api_invalido_retorn0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028ef8d0d0>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_________________ ERROR at setup of test_pix_da_propria_conta __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_pix_da_propria_conta0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f05c680>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+____________ ERROR at setup of test_pix_acima_do_limite_e_recusado _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_pix_acima_do_limite_e_rec0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f05cc00>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+________________ ERROR at setup of test_pix_saldo_insuficiente _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_pix_saldo_insuficiente0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028f0ab070>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_____________ ERROR at setup of test_comprovante_do_dono_acessivel _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_comprovante_do_dono_acess0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028efc6850>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+_______________ ERROR at setup of test_backoffice_login_e_busca ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_backoffice_login_e_busca0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028ef66180>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+______ ERROR at setup of test_backoffice_ajuste_pequeno_com_justificativa ______
+
+tmp_path = PosixPath('/tmp/pytest-of-admin/pytest-2/test_backoffice_ajuste_pequeno0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f028ed8d550>
+
+    @pytest.fixture()
+    def app(tmp_path, monkeypatch):
+        monkeypatch.delenv("BOX_ANTIFRAUDE_INDISPONIVEL", raising=False)
+>       app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "teste.db"),
+                          "UPLOAD_DIR": str(tmp_path / "uploads")})
+
+tests/conftest.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/__init__.py:29: in create_app
+    from app.pix import bp as pix_bp
+app/pix.py:7: in <module>
+    from app import antifraude, auditoria, psti_client
+app/psti_client.py:7: in <module>
+    import requests
+.venv/lib/python3.13/site-packages/requests/__init__.py:43: in <module>
+    import urllib3
+.venv/lib/python3.13/site-packages/urllib3/__init__.py:11: in <module>
+    from . import exceptions
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from __future__ import absolute_import
+    
+>   from .packages.six.moves.http_client import IncompleteRead as httplib_IncompleteRead
+E   ModuleNotFoundError: No module named 'urllib3.packages.six.moves'
+
+.venv/lib/python3.13/site-packages/urllib3/exceptions.py:3: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/test_abuse_cases.py: 21 warnings
+tests/test_funcional.py: 20 warnings
+  /home/admin/arquitetura/core-box/.venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:726: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    parts = parts or [ast.Str("")]
+
+tests/test_abuse_cases.py: 60 warnings
+tests/test_funcional.py: 60 warnings
+  /home/admin/arquitetura/core-box/.venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:723: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    _convert(elem) if is_dynamic else ast.Str(s=elem)
+
+tests/test_abuse_cases.py: 60 warnings
+tests/test_funcional.py: 60 warnings
+  /usr/lib/python3.13/ast.py:602: DeprecationWarning: Constant.__init__ got an unexpected keyword argument 's'. Support for arbitrary keyword arguments is deprecated and will be removed in Python 3.15.
+    return Constant(*args, **kwargs)
+
+tests/test_abuse_cases.py: 60 warnings
+tests/test_funcional.py: 60 warnings
+  /usr/lib/python3.13/ast.py:602: DeprecationWarning: Attribute s is deprecated and will be removed in Python 3.14; use value instead
+    return Constant(*args, **kwargs)
+
+tests/test_abuse_cases.py: 60 warnings
+tests/test_funcional.py: 60 warnings
+  /usr/lib/python3.13/ast.py:602: DeprecationWarning: Constant.__init__ missing 1 required positional argument: 'value'. This will become an error in Python 3.15.
+    return Constant(*args, **kwargs)
+
+tests/test_abuse_cases.py: 100 warnings
+tests/test_funcional.py: 100 warnings
+  /home/admin/arquitetura/core-box/.venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:730: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    if isinstance(p, ast.Str) and isinstance(ret[-1], ast.Str):
+
+tests/test_abuse_cases.py: 80 warnings
+tests/test_funcional.py: 80 warnings
+  /home/admin/arquitetura/core-box/.venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:731: DeprecationWarning: Attribute s is deprecated and will be removed in Python 3.14; use value instead
+    ret[-1] = ast.Str(ret[-1].s + p.s)
+
+tests/test_abuse_cases.py: 40 warnings
+tests/test_funcional.py: 40 warnings
+  /home/admin/arquitetura/core-box/.venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:731: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    ret[-1] = ast.Str(ret[-1].s + p.s)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/admin/arquitetura/core-box/evidencias-dia02/03-pytest/junit-inicial.xml -
+=========================== short test summary info ============================
+ERROR tests/test_abuse_cases.py::test_tm03_bola_pix_nao_debita_conta_de_terceiro
+ERROR tests/test_abuse_cases.py::test_tm23_login_nao_revela_se_cpf_e_cliente
+ERROR tests/test_abuse_cases.py::test_tm07_erro_nao_expoe_stack_trace - Modul...
+ERROR tests/test_abuse_cases.py::test_tm12_senha_nao_armazenada_em_md5 - Modu...
+ERROR tests/test_abuse_cases.py::test_tm29_busca_backoffice_resiste_a_sql_injection
+ERROR tests/test_abuse_cases.py::test_tm01_bloqueio_apos_tentativas_invalidas
+ERROR tests/test_abuse_cases.py::test_tm04_limite_override_e_ignorado - Modul...
+ERROR tests/test_abuse_cases.py::test_tm08_comprovante_exige_dono_autenticado
+ERROR tests/test_abuse_cases.py::test_tm20_idempotency_key_evita_pix_duplicado
+ERROR tests/test_abuse_cases.py::test_tm10_ajuste_exige_justificativa_e_alcada
+ERROR tests/test_funcional.py::test_health - ModuleNotFoundError: No module n...
+ERROR tests/test_funcional.py::test_login_web_redireciona_para_home - ModuleN...
+ERROR tests/test_funcional.py::test_home_mostra_saldo - ModuleNotFoundError: ...
+ERROR tests/test_funcional.py::test_login_api_invalido_retorna_erro - ModuleN...
+ERROR tests/test_funcional.py::test_pix_da_propria_conta - ModuleNotFoundErro...
+ERROR tests/test_funcional.py::test_pix_acima_do_limite_e_recusado - ModuleNo...
+ERROR tests/test_funcional.py::test_pix_saldo_insuficiente - ModuleNotFoundEr...
+ERROR tests/test_funcional.py::test_comprovante_do_dono_acessivel - ModuleNot...
+ERROR tests/test_funcional.py::test_backoffice_login_e_busca - ModuleNotFound...
+ERROR tests/test_funcional.py::test_backoffice_ajuste_pequeno_com_justificativa
+======================= 961 warnings, 20 errors in 0.28s =======================
