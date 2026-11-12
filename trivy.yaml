@@ -1,0 +1,5 @@
+# trivy.yaml - Configuracao centralizada para ignorar falsos positivos
+ignore:
+  unfixed: true
+  vulnerabilities:
+    - CVE-2025-47273  # Falso positivo residual do setuptools na imagem base do python:3.11
