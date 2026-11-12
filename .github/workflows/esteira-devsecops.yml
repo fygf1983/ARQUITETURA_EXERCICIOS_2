@@ -1,4 +1,4 @@
-name: Esteira DevSecOps Core Box
+name: Esteira DevSecOps — Core Box
 
 on:
   push:
@@ -9,291 +9,188 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   etapa-1-gitleaks:
-    name: 1. Gitleaks (Secrets)
+    name: "01. Secret Scanning (Gitleaks)"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout com histórico completo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Instalar Gitleaks
-        run: |
-          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
-          tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
-          sudo mv gitleaks /usr/local/bin/
-
       - name: Executar Gitleaks
-        continue-on-error: true # MODO AUDITORIA
-        run: |
-          gitleaks detect --source . --redact --report-format json --report-path gitleaks-report.json --exit-code 1
-
-      - name: Publicar Artefato
-        if: always()
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publicar Relatório Gitleaks
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: relatorio-gitleaks
           path: gitleaks-report.json
 
   etapa-2-semgrep:
-    name: 2. Semgrep (SAST)
-    needs: etapa-1-gitleaks
+    name: "02. SAST (Semgrep)"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Instalar Semgrep
-        run: pip install semgrep
-
+      - uses: actions/checkout@v4
       - name: Executar Semgrep
-        continue-on-error: true # MODO AUDITORIA
-        run: |
-          semgrep scan --config p/python --config .semgrep/ --metrics off --json --output semgrep.json --error
-
-      - name: Publicar Artefato
-        if: always()
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/flask
+            p/secrets
+            p/dockerfile
+            ./core-box/.semgrep/
+        env:
+          SEMGREP_METRICS: "0"
+      - name: Publicar Relatório Semgrep
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: relatorio-semgrep
           path: semgrep.json
 
   etapa-3-build-testes:
-    name: 3. Build & Pytest
-    needs: etapa-2-semgrep
+    name: "03. Build & Testes (Pytest)"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Instalar Dependências
+          cache: 'pip'
+      - name: Instalar Dependências e Executar Testes
         run: |
+          cd core-box
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-
-      - name: Executar Testes
-        continue-on-error: true # MODO AUDITORIA
-        run: |
-          pytest --junitxml=junit.xml
-
-      - name: Empacotar Artefato com SHA-256
-        run: |
-          tar -czf corebox-app.tar.gz app/ tests/ wsgi.py requirements.txt
-          sha256sum corebox-app.tar.gz > corebox-app.tar.gz.sha256
-
-      - name: Publicar Artefato
-        if: always()
+          pytest --junitxml=junit.xml -v
+      - name: Publicar Relatório de Testes
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: relatorio-03-build
-          path: |
-            junit.xml
-            corebox-app.tar.gz
-            corebox-app.tar.gz.sha256
+          path: core-box/junit.xml
 
   etapa-4-trivy-sca:
-    name: 4. Trivy (SCA Manifests)
-    needs: etapa-3-build-testes
+    name: "04. SCA Dependências (Trivy)"
     runs-on: ubuntu-latest
+    needs: [etapa-3-build-testes]
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Gerar SBOM CycloneDX
-        uses: aquasecurity/trivy-action@master
+      - uses: actions/checkout@v4
+      - name: Executar Trivy (FS)
+        uses: aquasecurity/trivy-action@0.18.0
         with:
           scan-type: 'fs'
-          scan-ref: '.'
-          format: 'cyclonedx-json'
-          output: 'sbom.json'
-
-      - name: Varredura SCA
-        continue-on-error: true # MODO AUDITORIA
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
+          scan-ref: './core-box'
+          format: 'json'
+          output: 'trivy-fs-report.json'
           severity: 'HIGH,CRITICAL'
-          ignore-unfixed: true
           exit-code: '1'
-          format: 'table'
-          output: 'trivy-sca-gate.txt'
-
-      - name: Publicar Artefato
-        if: always()
+      - name: Publicar Relatório SCA
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: relatorio-04-trivy-sca
-          path: |
-            sbom.json
-            trivy-sca-gate.txt
+          path: trivy-fs-report.json
 
   etapa-5-docker-build:
-    name: 5. Docker Buildx & GHCR
-    needs: etapa-4-trivy-sca
+    name: "05. Docker Build & Push"
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    needs: [etapa-1-gitleaks, etapa-2-semgrep, etapa-3-build-testes, etapa-4-trivy-sca]
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
-      image_digest: ${{ steps.build-push.outputs.digest }}
+      image_tag: ghcr.io/${{ github.repository_owner }}/core-box
+      image_digest: ${{ steps.build-image.outputs.digest }}
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Autenticar no GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Definir Tags
-        id: meta
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "tags=ghcr.io/${REPO_LOWER}:sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Construir e Publicar Imagem
-        id: build-push
+      - name: Build e Push da Imagem
+        id: build-image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./core-box
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-
-      - name: Exportar Digest
-        run: |
-          echo "Digest gerado: ${{ steps.build-push.outputs.digest }}" > docker-build-digest.txt
-
-      - name: Publicar Artefato
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-build
-          path: docker-build-digest.txt
+          tags: ghcr.io/${{ github.repository_owner }}/core-box:sha-${{ github.sha }}
 
   etapa-6-trivy-image:
-    name: 6. Trivy (Image Scan)
-    needs: etapa-5-docker-build
+    name: "06. Scan da Imagem (Trivy)"
     runs-on: ubuntu-latest
+    needs: [etapa-5-docker-build]
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Escanear Imagem pelo Digest
-        continue-on-error: true # MODO AUDITORIA
-        uses: aquasecurity/trivy-action@master
+      - name: Executar Trivy Image Scan
+        uses: aquasecurity/trivy-action@0.18.0
         with:
-          image-ref: ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
-          severity: 'HIGH,CRITICAL'
-          ignore-unfixed: true
-          exit-code: '1'
+          image-ref: '${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}'
           format: 'table'
-          output: 'trivy-image-report.txt'
-
-      - name: Publicar Artefato
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-image
-          path: trivy-image-report.txt
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
 
   etapa-7-homologacao-zap:
-    name: 7. Homologação & ZAP Baseline
-    needs: [etapa-5-docker-build, etapa-6-trivy-image]
+    name: "07. Homologação & DAST (ZAP)"
     runs-on: ubuntu-latest
+    needs: [etapa-6-trivy-image]
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Autenticar no GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Subir Aplicação em Homologação Efêmera
+      - name: Subir container para homologação
         run: |
-          docker run -d --name corebox-homolog -p 8000:8000 \
-            -e BOX_JWT_SECRET="segredo-temporario-de-homologacao-com-alta-entropia-12345" \
-            -e BOX_SECRET_KEY="segredo-flask-temporario-de-homologacao-12345" \
-            ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
-          for i in {1..30}; do
-            if curl -s http://localhost:8000/health | grep -q "ok"; then
-              echo "Homologação pronta!"
-              break
-            fi
-            sleep 1
-          done
-
+          docker run -d -p 8000:8000 ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
+          sleep 10
       - name: Executar OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: 'http://localhost:8000'
+          target: 'http://localhost:8000/health'
           fail_action: false
-          allow_issue_writing: false
-          cmd_options: '-m 1'
-
       - name: Publicar Relatório ZAP
-        if: always()
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: homologacao-zap
-          path: zap_report.html
+          path: ${{ steps.zaproxy.outputs.report }}
 
-  etapa-8-producao:
-    name: 8. Produção (Aprovação & Deploy)
-    needs: [etapa-5-docker-build, etapa-7-homologacao-zap]
+  etapa-8-deploy:
+    name: "08. Aprovação & Produção (VPS)"
     runs-on: ubuntu-latest
-    environment:
-      name: producao
+    needs: [etapa-7-homologacao-zap]
+    environment: producao
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Configurar SSH
+      - uses: actions/checkout@v4
+      - name: Configurar Chave SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.PROD_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-
+          ssh-keyscan -H "${{ vars.PROD_HOST }}" >> ~/.ssh/known_hosts
       - name: Transferir Arquivos de Deploy
         run: |
-          scp -r deploy/docker-compose.prod.yml deploy/deploy.sh deploy@${{ vars.PROD_HOST }}:/opt/core-box/
-
+          cd core-box
+          scp -r deploy/docker-compose.prod.yml deploy/deploy.sh admin@${{ vars.PROD_HOST }}:/opt/core-box/
       - name: Executar Deploy na VPS
         run: |
-          ssh deploy@${{ vars.PROD_HOST }} << 'EOF'
+          ssh admin@${{ vars.PROD_HOST }} << 'EOF'
             cd /opt/core-box
             export IMAGEM="${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}"
             export BOX_JWT_SECRET="${{ secrets.BOX_JWT_SECRET }}"
             export BOX_SECRET_KEY="${{ secrets.BOX_SECRET_KEY }}"
+            chmod +x ./deploy.sh
             ./deploy.sh
           EOF
-
       - name: Smoke Test em Produção
         run: |
           curl -f http://${{ vars.PROD_HOST }}/health
 
   resumo-esteira:
     name: Resumo da Esteira
-    needs: [etapa-1-gitleaks, etapa-2-semgrep, etapa-3-build-testes, etapa-4-trivy-sca, etapa-5-docker-build, etapa-6-trivy-image, etapa-7-homologacao-zap, etapa-8-producao]
+    needs: [etapa-1-gitleaks, etapa-2-semgrep, etapa-3-build-testes, etapa-4-trivy-sca, etapa-5-docker-build, etapa-6-trivy-image, etapa-7-homologacao-zap, etapa-8-deploy]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -309,4 +206,4 @@ jobs:
           echo "| 5. Imagem | Buildx + GHCR | Bloqueante | ${{ needs.etapa-5-docker-build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 6. Container | Trivy image | Bloqueante | ${{ needs.etapa-6-trivy-image.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 7. DAST | OWASP ZAP | Informativo | ${{ needs.etapa-7-homologacao-zap.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 8. Deploy | Environments | Aprovação Manual | ${{ needs.etapa-8-producao.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 8. Deploy | VPS / SSH | Aprovação | ${{ needs.etapa-8-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
