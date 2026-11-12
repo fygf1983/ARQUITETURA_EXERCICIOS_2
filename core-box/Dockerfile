@@ -1,13 +1,27 @@
-# Core Box — imagem de produção (versão v1 entregue pelo time)
+# Core Box — imagem de produção corrigida (hardening aplicado)
 FROM python:3.11.4-slim-bookworm
 
-ADD . /app
+# Cria um usuário não-root por segurança e o diretório da app
+RUN useradd -u 1000 appuser && mkdir /app && chown appuser:appuser /app
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y iputils-ping curl
-RUN pip install -r requirements.txt
+# Copia seletivamente os requisitos e instala as dependências sem utilitários extras
+COPY --chown=appuser:appuser requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia o restante do código da aplicação
+COPY --chown=appuser:appuser . .
+
+# Define o usuário restrito (não-root) para a execução
+USER appuser
 
 ENV BOX_AMBIENTE=producao
 EXPOSE 8000
 
-CMD gunicorn -b 0.0.0.0:8000 --workers 1 --threads 4 wsgi:app
+# Healthcheck para monitoramento de saúde do container
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# CMD em formato exec (vetor JSON) para propagação correta de sinais do SO
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "wsgi:app"]
