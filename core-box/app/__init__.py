@@ -1,14 +1,29 @@
-"""Core Box — Core Bancário do Banco Box (versão de laboratório).
-
-ATENÇÃO: esta aplicação contém vulnerabilidades INTENCIONAIS para fins de
-treinamento (Projeto Integrador DevSecOps — Dia 02). Não use em produção.
-"""
+"""Core Box – Core Bancário do Banco Box (versão de laboratório)."""
 import logging
 import traceback
-
-from flask import Flask, redirect, request, make_response
+from flask import Flask, redirect, make_response
+from werkzeug.exceptions import HTTPException
+from werkzeug.security import generate_password_hash
 
 from app import config, db
+
+
+def _migrar_senhas_md5(conn):
+    """Converte senhas em MD5 puro do seed inicial para hash seguro com salt (TM-12)."""
+    try:
+        usuarios = conn.execute("SELECT id, senha_hash FROM usuarios").fetchall()
+        alterou = False
+        for u in usuarios:
+            h = u["senha_hash"] or ""
+            # Se for hash MD5 hexadecimal puro (32 caracteres sem prefixo de algoritmo)
+            if len(h) == 32 and not h.startswith(("pbkdf2:", "scrypt:", "argon2:")):
+                novo_hash = generate_password_hash(h)
+                conn.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?", (novo_hash, u["id"]))
+                alterou = True
+        if alterou:
+            conn.commit()
+    except Exception:
+        pass
 
 
 def create_app(test_config=None):
@@ -23,6 +38,16 @@ def create_app(test_config=None):
     )
 
     db.init_app(app)
+
+    # >>> CORREÇÃO TM-12: Garante que qualquer conexão retornada por get_db() não tenha senhas em MD5 puro
+    _get_db_original = db.get_db
+
+    def _get_db_seguro():
+        conn = _get_db_original()
+        _migrar_senhas_md5(conn)
+        return conn
+
+    db.get_db = _get_db_seguro
 
     from app.auth import bp as auth_bp
     from app.contas import bp as contas_bp
@@ -44,18 +69,17 @@ def create_app(test_config=None):
 
     @app.route("/health")
     def health():
-        # TM-07: expõe versão e ambiente para "facilitar o suporte"
-        return {"status": "ok", "app": "core-box", "versao": config.Config.VERSAO,
-                "ambiente": config.Config.AMBIENTE, "debug": app.config["DEBUG"]}
+        return {"status": "ok", "app": "core-box"}
 
     @app.errorhandler(Exception)
     def erro_generico(exc):
-        # TM-07 (CWE-209): devolve a stack trace completa ao cliente
+        # >>> CORREÇÃO: Preserva códigos HTTP nativos do Flask (como 404 Not Found)
+        if isinstance(exc, HTTPException):
+            return make_response({"erro": exc.description}, exc.code)
+
+        # >>> CORREÇÃO TM-07 (CWE-209): Registra o erro internamente, mas NÃO expõe stack trace nem arquivos .py ao cliente
         detalhe = traceback.format_exc()
         app.logger.error("Erro não tratado: %s", detalhe)
-        resp = make_response(
-            {"erro": str(exc), "tipo": exc.__class__.__name__, "trace": detalhe}, 500
-        )
-        return resp
+        return make_response({"erro": "Erro interno no processamento da requisição."}, 500)
 
     return app

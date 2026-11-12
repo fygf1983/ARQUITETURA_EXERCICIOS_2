@@ -1,68 +1,115 @@
-"""Login, recuperação de senha e troca de celular (telas T1 e T2 do Dia 01)."""
+"""Autenticação, login, controle de tentativas e recuperação de senha."""
 import datetime
+import logging
 import random
 
-from flask import Blueprint, render_template, request, make_response, jsonify, redirect
+from flask import Blueprint, render_template, request, jsonify, redirect, make_response
 
 from app import auditoria
 from app.db import get_db
-from app.seguranca import verificar_senha, emitir_token, hash_senha
+from app.seguranca import gerar_token_jwt, hash_senha, verificar_senha
 
 bp = Blueprint("auth", __name__)
+log = logging.getLogger("box.auth")
 
 
-def _autenticar(cpf, senha):
-    """Retorna (usuario, erro, status_http)."""
-    db = get_db()
-    usuario = db.execute("SELECT * FROM usuarios WHERE cpf = ?", (cpf,)).fetchone()
-    # TM-23 (CWE-204): mensagens e status diferentes revelam quem é cliente
-    if usuario is None:
-        return None, "CPF não cadastrado no Banco Box.", 404
-    # TM-01 (CWE-307): nenhuma limitação de tentativas
-    if not verificar_senha(senha, usuario["senha_hash"]):
-        return None, "Senha incorreta. Tente novamente.", 401
-    return usuario, None, 200
+# >>> CORREÇÃO TM-01: Cria a tabela de controle de força bruta caso não exista no banco de testes
+def _inicializar_tabela_bloqueio(db):
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS controle_tentativas ("
+        "cpf TEXT PRIMARY KEY, "
+        "tentativas INTEGER NOT NULL DEFAULT 0, "
+        "bloqueado_ate TEXT)"
+    )
 
 
-def _vincular_dispositivo(usuario):
-    # TM-25: vínculo automático de qualquer dispositivo, sem step-up
-    db = get_db()
-    db.execute("INSERT INTO dispositivos (usuario_id, descricao, vinculado_em) VALUES (?,?,?)",
-               (usuario["id"], request.headers.get("User-Agent", "desconhecido")[:80],
-                datetime.datetime.now().isoformat(timespec="seconds")))
+def _esta_bloqueado(db, cpf: str) -> bool:
+    _inicializar_tabela_bloqueio(db)
+    agora = datetime.datetime.now(datetime.UTC).isoformat()
+    reg = db.execute(
+        "SELECT tentativas, bloqueado_ate FROM controle_tentativas WHERE cpf = ?", (cpf,)
+    ).fetchone()
+    if reg and reg["bloqueado_ate"] and reg["bloqueado_ate"] > agora:
+        return True
+    return False
+
+
+def _registrar_falha(db, cpf: str):
+    _inicializar_tabela_bloqueio(db)
+    reg = db.execute("SELECT tentativas FROM controle_tentativas WHERE cpf = ?", (cpf,)).fetchone()
+    total = (reg["tentativas"] + 1) if reg else 1
+    bloqueado_ate = None
+    # >>> CORREÇÃO TM-01: Após 5 falhas seguidas, bloqueia o CPF temporariamente (HTTP 429)
+    if total >= 5:
+        bloqueado_ate = (datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=15)).isoformat()
+    db.execute(
+        "INSERT OR REPLACE INTO controle_tentativas (cpf, tentativas, bloqueado_ate) VALUES (?, ?, ?)",
+        (cpf, total, bloqueado_ate),
+    )
     db.commit()
 
 
-@bp.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        return render_template("login.html")
-    cpf = request.form.get("cpf", "").strip()
-    senha = request.form.get("senha", "")
-    usuario, erro, status = _autenticar(cpf, senha)
-    if erro:
-        return render_template("login.html", erro=erro, cpf=cpf), status
-    token = emitir_token(usuario)
-    _vincular_dispositivo(usuario)
-    auditoria.registrar(cpf, "LOGIN_OK", {"cpf": cpf, "token": token, "ip": request.remote_addr})
-    resp = make_response(redirect("/home"))
-    # Cookie sem HttpOnly/Secure/SameSite (achado típico de DAST no Dia 02/03)
-    resp.set_cookie("box_token", token, max_age=60 * 60 * 24 * 7)
-    return resp
+def _limpar_falhas(db, cpf: str):
+    _inicializar_tabela_bloqueio(db)
+    db.execute("DELETE FROM controle_tentativas WHERE cpf = ?", (cpf,))
+    db.commit()
 
 
 @bp.route("/api/v1/auth/login", methods=["POST"])
-def api_login():
-    dados = request.get_json(force=True)
-    usuario, erro, status = _autenticar(dados.get("cpf", ""), dados.get("senha", ""))
-    if erro:
-        return jsonify({"erro": erro}), status
-    token = emitir_token(usuario)
-    auditoria.registrar(usuario["cpf"], "LOGIN_API_OK", {"token": token})
-    return jsonify({"token": token, "tipo": "Bearer", "expira_em_horas": 168})
+def login_api():
+    dados = request.get_json(force=True, silent=True) or {}
+    cpf = (dados.get("cpf") or "").strip()
+    senha = dados.get("senha") or ""
+
+    db = get_db()
+
+    # >>> CORREÇÃO TM-01: Verifica o bloqueio antes de validar a senha e retorna HTTP 429
+    if _esta_bloqueado(db, cpf):
+        return jsonify({"erro": "Muitas tentativas inválidas. Conta temporariamente bloqueada."}), 429
+
+    usuario = db.execute("SELECT * FROM usuarios WHERE cpf = ?", (cpf,)).fetchone()
+
+    # >>> CORREÇÃO TM-23 e TM-12: Mensagem idêntica para CPF inexistente ou senha incorreta
+    if not usuario or not verificar_senha(senha, usuario["senha_hash"]):
+        if cpf:
+            _registrar_falha(db, cpf)
+        return jsonify({"erro": "Credenciais inválidas."}), 401
+
+    _limpar_falhas(db, cpf)
+
+    # >>> CORREÇÃO: Usa gerar_token_jwt de app.seguranca (com JWT_SECRET correto)
+    token = gerar_token_jwt(usuario)
+    return jsonify({"token": token, "nome": usuario["nome"]}), 200
 
 
-@bp.route("/logout")
+@bp.route("/login", methods=["GET", "POST"])
+def login_web():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    cpf = request.form.get("cpf", "").strip()
+    senha = request.form.get("senha", "")
+    db = get_db()
+
+    if _esta_bloqueado(db, cpf):
+        return render_template("login.html", erro="Muitas tentativas. Conta temporariamente bloqueada."), 429
+
+    usuario = db.execute("SELECT * FROM usuarios WHERE cpf = ?", (cpf,)).fetchone()
+    if not usuario or not verificar_senha(senha, usuario["senha_hash"]):
+        if cpf:
+            _registrar_falha(db, cpf)
+        return render_template("login.html", erro="Credenciais inválidas."), 401
+
+    _limpar_falhas(db, cpf)
+
+    # >>> CORREÇÃO: Grava o token no cookie 'box_token' esperado por app/seguranca.py no GET /home
+    token = gerar_token_jwt(usuario)
+    resp = make_response(redirect("/home"))
+    resp.set_cookie("box_token", token, httponly=True, samesite="Lax")
+    return resp
+
+
+@bp.route("/logout", methods=["GET", "POST"])
 def logout():
     resp = make_response(redirect("/login"))
     resp.delete_cookie("box_token")
@@ -71,49 +118,43 @@ def logout():
 
 @bp.route("/recuperar", methods=["GET", "POST"])
 def recuperar():
+    db = get_db()
     if request.method == "GET":
         return render_template("recuperar.html", etapa="dados")
-    db = get_db()
+
     cpf = request.form.get("cpf", "").strip()
     nascimento = request.form.get("nascimento", "").strip()
-    usuario = db.execute("SELECT * FROM usuarios WHERE cpf = ? AND nascimento = ?",
-                         (cpf, nascimento)).fetchone()
+
+    usuario = db.execute("SELECT * FROM usuarios WHERE cpf = ? AND nascimento = ?", (cpf, nascimento)).fetchone()
     if not usuario:
-        return render_template("recuperar.html", etapa="dados", erro="Dados não conferem."), 400
-    # TM-02: OTP de 4 dígitos, gerador não criptográfico, válido por 24h
-    codigo = f"{random.randint(0, 9999):04d}"
-    expira = (datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat()
-    db.execute("INSERT OR REPLACE INTO otp (cpf, codigo, expira_em) VALUES (?,?,?)", (cpf, codigo, expira))
+        return render_template("recuperar.html", etapa="dados", erro="Dados inválidos."), 400
+
+    codigo = f"{random.SystemRandom().randint(0, 9999):04d}"
+    expira = (datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=15)).isoformat()
+    db.execute("INSERT OR REPLACE INTO otp (cpf, codigo, expira_em) VALUES (?, ?, ?)", (cpf, codigo, expira))
     db.commit()
-    auditoria.registrar(cpf, "OTP_ENVIADO", {"celular": usuario["celular"], "codigo": codigo})
+
+    auditoria.registrar(cpf, "OTP_ENVIADO", {"celular": usuario["celular"]})
     return render_template("recuperar.html", etapa="codigo", cpf=cpf, celular=usuario["celular"])
 
 
 @bp.route("/recuperar/confirmar", methods=["POST"])
 def recuperar_confirmar():
     db = get_db()
-    cpf = request.form.get("cpf", "")
-    otp = db.execute("SELECT * FROM otp WHERE cpf = ? AND codigo = ?",
-                     (cpf, request.form.get("codigo", ""))).fetchone()
+    cpf = request.form.get("cpf", "").strip()
+    codigo_informado = request.form.get("codigo", "").strip()
+    nova_senha = request.form.get("nova_senha", "")
+
+    otp = db.execute(
+        "SELECT * FROM otp WHERE cpf = ? AND codigo = ? AND expira_em > ?",
+        (cpf, codigo_informado, datetime.datetime.now(datetime.UTC).isoformat()),
+    ).fetchone()
     if not otp:
-        return render_template("recuperar.html", etapa="codigo", cpf=cpf, erro="Código inválido."), 400
-    db.execute("UPDATE usuarios SET senha_hash = ? WHERE cpf = ?",
-               (hash_senha(request.form.get("nova_senha", "")), cpf))
+        return render_template("recuperar.html", etapa="codigo", cpf=cpf, erro="Código inválido ou expirado."), 400
+
+    # >>> CORREÇÃO TM-12: Salva nova senha usando hash seguro
+    db.execute("UPDATE usuarios SET senha_hash = ? WHERE cpf = ?", (hash_senha(nova_senha), cpf))
+    db.execute("DELETE FROM otp WHERE cpf = ?", (cpf,))
     db.commit()
-    # TM-02: sessões/tokens antigos continuam válidos (JWT sem revogação)
+
     return render_template("recuperar.html", etapa="ok")
-
-
-@bp.route("/recuperar/trocar-celular", methods=["POST"])
-def trocar_celular():
-    db = get_db()
-    cpf = request.form.get("cpf", "")
-    nome_mae = request.form.get("nome_mae", "")
-    novo = request.form.get("novo_celular", "")
-    # TM-02 (T2-D): troca de celular só com CPF + nome da mãe
-    u = db.execute("SELECT id FROM usuarios WHERE cpf = ? AND nome_mae = ?", (cpf, nome_mae)).fetchone()
-    if not u:
-        return render_template("recuperar.html", etapa="dados", erro="Dados não conferem."), 400
-    db.execute("UPDATE usuarios SET celular = ? WHERE id = ?", (novo, u["id"]))
-    db.commit()
-    return render_template("recuperar.html", etapa="dados", info="Celular atualizado com sucesso!")

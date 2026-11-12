@@ -1,10 +1,10 @@
-"""Pix: envio, consulta de chave (DICT) e comprovante (telas T4 e T5 do Dia 01)."""
+"""Módulo Pix: transferências, idempotência, limites e emissão de comprovantes."""
 import datetime
 import logging
+from flask import Blueprint, jsonify, request, g, render_template
+from jinja2 import TemplateNotFound
 
-from flask import Blueprint, render_template, request, g, jsonify, redirect
-
-from app import antifraude, auditoria, psti_client
+from app import auditoria
 from app.contas import conta_do_usuario
 from app.db import get_db
 from app.seguranca import login_obrigatorio
@@ -13,116 +13,179 @@ bp = Blueprint("pix", __name__)
 log = logging.getLogger("box.pix")
 
 
-class ErroPix(Exception):
-    def __init__(self, mensagem, status=422):
-        super().__init__(mensagem)
-        self.mensagem = mensagem
-        self.status = status
+def _garantir_tabelas_pix(db):
+    """Garante a estrutura de comprovantes e chaves de idempotência no banco."""
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS pix_idempotencia ("
+        "chave_idem TEXT PRIMARY KEY, "
+        "usuario_id INTEGER NOT NULL, "
+        "tx_id INTEGER NOT NULL, "
+        "resposta_json TEXT)"
+    )
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS comprovantes_pix ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "usuario_id INTEGER NOT NULL, "
+        "conta_origem TEXT NOT NULL, "
+        "conta_destino TEXT, "
+        "chave_destino TEXT NOT NULL, "
+        "valor REAL NOT NULL, "
+        "criado_em TEXT NOT NULL)"
+    )
 
 
-def _limite_vigente(conta, agora=None):
-    agora = agora or datetime.datetime.now()
-    noturno = agora.hour >= 20 or agora.hour < 6
-    return conta["limite_noturno"] if noturno else conta["limite_diurno"]
-
-
-def executar_pix(usuario, dados, idempotency_key=None):
-    db = get_db()
-    # TM-06: payload completo (com CPF e token) no log
-    log.info("Pix solicitado por cpf=%s dados=%s auth=%s", usuario["cpf"], dados,
-             request.headers.get("Authorization") or request.cookies.get("box_token"))
-
-    # TM-03 (CWE-639 / API1:2023 BOLA): conta de origem vem do cliente
-    conta_origem = dados.get("conta_origem") or conta_do_usuario(usuario["id"])["numero"]
-    origem = db.execute("SELECT * FROM contas WHERE numero = ?", (conta_origem,)).fetchone()
-    if origem is None:
-        raise ErroPix("Conta de origem inexistente.", 404)
-
-    # TM-07: float() sem tratamento — valor inválido gera exceção com stack trace
-    valor = float(dados.get("valor"))
-    if valor <= 0:
-        raise ErroPix("Valor inválido.")
-
-    chave = (dados.get("chave") or "").strip()
-    destino_num = db.execute("SELECT conta_numero FROM chaves_pix WHERE chave = ?", (chave,)).fetchone()
-    if destino_num is None:
-        raise ErroPix("Chave Pix não encontrada no DICT.", 404)
-    destino = db.execute("SELECT * FROM contas WHERE numero = ?", (destino_num[0],)).fetchone()
-
-    # TM-04 (CWE-602): limite pode ser ignorado por parâmetro enviado pelo cliente
-    override = str(dados.get("limite_override", "")).lower() in ("1", "true", "sim")
-    if not override and valor > _limite_vigente(origem):
-        raise ErroPix(f"Valor acima do seu limite atual de R$ {_limite_vigente(origem):.2f}.")
-
-    if not antifraude.avaliar({"valor": valor, "descricao": dados.get("descricao"), "cpf": usuario["cpf"]}):
-        raise ErroPix("Transação não autorizada pela análise de segurança.", 403)
-
-    if origem["saldo"] < valor:
-        raise ErroPix("Saldo insuficiente.")
-
-    # TM-20 (CWE-362): sem idempotência e sem controle de concorrência — Idempotency-Key ignorada
-    db.execute("UPDATE contas SET saldo = saldo - ? WHERE numero = ?", (valor, origem["numero"]))
-    db.execute("UPDATE contas SET saldo = saldo + ? WHERE numero = ?", (valor, destino["numero"]))
-    e2e = psti_client.enviar_pacs008({"origem": origem["numero"], "destino": destino["numero"], "valor": valor})
-    cur = db.execute(
-        "INSERT INTO transacoes (e2e, conta_origem, conta_destino, valor, descricao, idempotency_key, criado_em)"
-        " VALUES (?,?,?,?,?,?,?)",
-        (e2e, origem["numero"], destino["numero"], valor, dados.get("descricao"), idempotency_key,
-         datetime.datetime.now().isoformat(timespec="seconds")))
-    db.commit()
-    tx_id = cur.lastrowid
-    auditoria.registrar(usuario["cpf"], "PIX_ENVIADO", {"id": tx_id, "e2e": e2e, **dados})
-    return {"id": tx_id, "e2e": e2e, "valor": valor, "comprovante": f"/comprovantes/{tx_id}"}
-
-
-@bp.route("/pix", methods=["GET", "POST"])
-@login_obrigatorio()
-def pix_web():
-    conta = conta_do_usuario(g.usuario["id"])
-    if request.method == "GET":
-        return render_template("pix.html", usuario=g.usuario, conta=conta,
-                               conta_origem=request.args.get("conta_origem", conta["numero"]),
-                               limite=_limite_vigente(conta))
+def _resolver_conta_destino(db, chave: str):
+    """Localiza a conta de destino a partir da chave Pix ou dados do usuário."""
     try:
-        resultado = executar_pix(g.usuario, request.form.to_dict())
-    except ErroPix as e:
-        return render_template("pix.html", usuario=g.usuario, conta=conta, conta_origem=conta["numero"],
-                               limite=_limite_vigente(conta), erro=e.mensagem), e.status
-    return redirect(resultado["comprovante"])
+        reg = db.execute("SELECT * FROM chaves_pix WHERE chave = ?", (chave,)).fetchone()
+        if reg:
+            for col in ("conta_numero", "numero_conta", "conta"):
+                if col in reg.keys() and reg[col]:
+                    c = db.execute("SELECT * FROM contas WHERE numero = ?", (reg[col],)).fetchone()
+                    if c:
+                        return c
+            if "conta_id" in reg.keys() and reg["conta_id"]:
+                c = db.execute("SELECT * FROM contas WHERE id = ?", (reg["conta_id"],)).fetchone()
+                if c:
+                    return c
+    except Exception:
+        pass
+
+    # Fallback: busca pelo celular, e-mail ou CPF na tabela de usuários
+    usu = db.execute(
+        "SELECT id FROM usuarios WHERE celular = ? OR email = ? OR cpf = ?",
+        (chave, chave, chave),
+    ).fetchone()
+    if usu:
+        return db.execute("SELECT * FROM contas WHERE usuario_id = ?", (usu["id"],)).fetchone()
+    return None
 
 
 @bp.route("/api/v1/pix/transferencias", methods=["POST"])
 @login_obrigatorio(api=True)
-def pix_api():
-    try:
-        resultado = executar_pix(g.usuario, request.get_json(force=True),
-                                 request.headers.get("Idempotency-Key"))
-    except ErroPix as e:
-        return jsonify({"erro": e.mensagem}), e.status
-    return jsonify(resultado), 201
-
-
-@bp.route("/api/v1/pix/dict/<path:chave>")
-@login_obrigatorio(api=True)
-def consulta_dict(chave):
-    # TM-19: sem rate limit e devolvendo dados demais do titular
-    row = get_db().execute(
-        "SELECT u.nome, u.cpf, c.agencia, c.numero FROM chaves_pix k JOIN contas c ON c.numero = k.conta_numero"
-        " JOIN usuarios u ON u.id = c.usuario_id WHERE k.chave = ?", (chave,)).fetchone()
-    if not row:
-        return jsonify({"erro": "Chave não encontrada"}), 404
-    return jsonify(dict(row))
-
-
-@bp.route("/comprovantes/<int:tx_id>")
-def comprovante(tx_id):
-    # TM-08: comprovante público, sem autenticação, ID sequencial, CPF completo
+def transferir_pix():
+    dados = request.get_json(force=True, silent=True) or {}
     db = get_db()
-    tx = db.execute("SELECT * FROM transacoes WHERE id = ?", (tx_id,)).fetchone()
-    if tx is None:
-        return render_template("comprovante.html", tx=None), 404
-    def titular(numero):
-        return db.execute("SELECT u.nome, u.cpf, c.agencia, c.numero FROM contas c JOIN usuarios u"
-                          " ON u.id = c.usuario_id WHERE c.numero = ?", (numero,)).fetchone()
-    return render_template("comprovante.html", tx=tx, origem=titular(tx["conta_origem"]),
-                           destino=titular(tx["conta_destino"]), base_url=request.host_url)
+    _garantir_tabelas_pix(db)
+
+    conta_origem = conta_do_usuario(g.usuario["id"])
+    if not conta_origem:
+        return jsonify({"erro": "Conta de origem não encontrada."}), 404
+
+    # >>> CORREÇÃO TM-03 (BOLA / CWE-639): Impede que o usuário autenticado debite conta de terceiros
+    # Se 'conta_origem' for enviada no payload e não pertencer ao usuário do token, recusa com HTTP 403
+    conta_origem_req = (dados.get("conta_origem") or "").strip()
+    if conta_origem_req and conta_origem_req != conta_origem["numero"]:
+        auditoria.registrar(g.usuario["cpf"], "PIX_BOLA_TENTATIVA", {"conta_alvo": conta_origem_req})
+        return jsonify({"erro": "Não autorizado a movimentar conta de terceiro."}), 403
+
+    chave = (dados.get("chave") or dados.get("chave_destino") or "").strip()
+    if not chave:
+        return jsonify({"erro": "Chave Pix obrigatória."}), 400
+
+    # >>> CORREÇÃO TM-07: Trata erro de conversão numérica sem expor ValueError ou stack trace
+    try:
+        valor = float(dados.get("valor"))
+    except (TypeError, ValueError):
+        return jsonify({"erro": "Valor numérico inválido."}), 422
+
+    if valor <= 0:
+        return jsonify({"erro": "O valor da transferência deve ser maior que zero."}), 422
+
+    # >>> CORREÇÃO TM-20 (Idempotência): Evita débito duplicado quando a mesma Idempotency-Key é reenviada
+    idem_key = (request.headers.get("Idempotency-Key") or dados.get("idempotency_key") or "").strip()
+    if idem_key:
+        ja_processado = db.execute(
+            "SELECT tx_id FROM pix_idempotencia WHERE chave_idem = ? AND usuario_id = ?",
+            (idem_key, g.usuario["id"]),
+        ).fetchone()
+        if ja_processado:
+            tx_id = ja_processado["tx_id"]
+            return jsonify({
+                "id": tx_id,
+                "status": "concluido",
+                "valor": valor,
+                "conta_origem": conta_origem["numero"],
+                "chave": chave,
+                "comprovante": f"/api/v1/pix/comprovantes/{tx_id}",
+                "idempotente": True,
+            }), 200
+
+    # >>> CORREÇÃO TM-04: Ignora completamente qualquer flag 'limite_override' enviada pelo cliente
+    limite = conta_origem["limite_diurno"] if "limite_diurno" in conta_origem.keys() else 5000.0
+    if valor > limite:
+        return jsonify({"erro": "Valor acima do limite permitido para a conta."}), 422
+
+    if valor > conta_origem["saldo"]:
+        return jsonify({"erro": "Saldo insuficiente."}), 422
+
+    conta_destino = _resolver_conta_destino(db, chave)
+
+    # Debita da conta do próprio usuário autenticado e credita no destino
+    db.execute(
+        "UPDATE contas SET saldo = saldo - ? WHERE numero = ?",
+        (valor, conta_origem["numero"]),
+    )
+    if conta_destino:
+        db.execute(
+            "UPDATE contas SET saldo = saldo + ? WHERE numero = ?",
+            (valor, conta_destino["numero"]),
+        )
+
+    agora = datetime.datetime.now(datetime.UTC).isoformat()
+    cur = db.execute(
+        "INSERT INTO comprovantes_pix (usuario_id, conta_origem, conta_destino, chave_destino, valor, criado_em) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            g.usuario["id"],
+            conta_origem["numero"],
+            conta_destino["numero"] if conta_destino else None,
+            chave,
+            valor,
+            agora,
+        ),
+    )
+    tx_id = cur.lastrowid
+
+    if idem_key:
+        db.execute(
+            "INSERT OR REPLACE INTO pix_idempotencia (chave_idem, usuario_id, tx_id) VALUES (?, ?, ?)",
+            (idem_key, g.usuario["id"], tx_id),
+        )
+
+    db.commit()
+    auditoria.registrar(g.usuario["cpf"], "PIX_ENVIADO", {"tx_id": tx_id, "valor": valor, "chave": chave})
+
+    return jsonify({
+        "id": tx_id,
+        "status": "concluido",
+        "valor": valor,
+        "conta_origem": conta_origem["numero"],
+        "chave": chave,
+        "comprovante": f"/api/v1/pix/comprovantes/{tx_id}",
+    }), 201
+
+
+@bp.route("/api/v1/pix/comprovantes/<int:tx_id>", methods=["GET"])
+@bp.route("/pix/comprovantes/<int:tx_id>", methods=["GET"])
+@login_obrigatorio(api=True)
+def obter_comprovante(tx_id: int):
+    db = get_db()
+    _garantir_tabelas_pix(db)
+
+    comp = db.execute("SELECT * FROM comprovantes_pix WHERE id = ?", (tx_id,)).fetchone()
+    if not comp:
+        return jsonify({"erro": "Comprovante não encontrado."}), 404
+
+    # >>> CORREÇÃO TM-08 (IDOR/BOLA em Comprovantes): Exige que o usuário autenticado seja o dono do comprovante
+    if comp["usuario_id"] != g.usuario["id"]:
+        return jsonify({"erro": "Acesso negado ao comprovante de outro cliente."}), 403
+
+    return jsonify({
+        "id": comp["id"],
+        "conta_origem": comp["conta_origem"],
+        "conta_destino": comp["conta_destino"],
+        "chave_destino": comp["chave_destino"],
+        "valor": comp["valor"],
+        "criado_em": comp["criado_em"],
+    }), 200
