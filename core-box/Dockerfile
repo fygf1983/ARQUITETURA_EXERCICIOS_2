@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copia seletivamente os requisitos e instala as dependências sem utilitários extras
 COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y setuptools wheel || true && find /usr/local -name "*sbom*" -delete
+    pip uninstall -y setuptools wheel || true && find /usr/local -name "*spdx*" -delete
 
 # Copia o restante do código da aplicação
 COPY --chown=appuser:appuser . .

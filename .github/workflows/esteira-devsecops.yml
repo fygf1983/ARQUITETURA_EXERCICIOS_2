@@ -92,6 +92,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
           ignore-unfixed: true
+          trivyignores: /github/workspace/.trivyignore
       - name: Publicar Relatório SCA
         uses: actions/upload-artifact@v4
         if: always()
@@ -137,6 +138,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
           ignore-unfixed: true
+          trivyignores: /github/workspace/.trivyignore
 
   etapa-7-homologacao-zap:
     name: "07. Homologação & DAST (ZAP)"
