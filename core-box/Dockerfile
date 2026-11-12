@@ -1,10 +1,18 @@
 # Core Box — imagem de produção corrigida (hardening aplicado)
-FROM python:3.11.4-slim-bookworm
+FROM python:3.11-slim-bookworm
+
+# Aplica patches de segurança do SO e limpa o cache do apt
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
 # Cria um usuário não-root por segurança e o diretório da app
 RUN useradd -u 1000 appuser && mkdir /app && chown appuser:appuser /app
 
 WORKDIR /app
+
+# Atualiza ferramentas base de empacotamento Python para eliminar CVEs de setuptools/wheel
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Copia seletivamente os requisitos e instala as dependências sem utilitários extras
 COPY --chown=appuser:appuser requirements.txt .
