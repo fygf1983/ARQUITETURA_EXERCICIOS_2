@@ -154,7 +154,9 @@ jobs:
           docker run -d -p 8000:8000 ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
           sleep 10
       - name: Executar OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
+        - name: Ajustar permissoes para o ZAP
+        run: sudo chmod -R 777 .
+      - uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8000/health'
           fail_action: false
