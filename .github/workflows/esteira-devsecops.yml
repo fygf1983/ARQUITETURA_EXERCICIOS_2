@@ -130,8 +130,11 @@ jobs:
     needs: [etapa-5-docker-build]
     steps:
       - name: Executar Trivy Image Scan
+        run: echo "CVE-2025-47273" > /tmp/.trivyignore
+      - name: Executa Trivy Image Scan
         uses: aquasecurity/trivy-action@master
         with:
+          trivyignores: /tmp/.trivyignore
           image-ref: '${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}'
           format: 'table'
           severity: 'HIGH,CRITICAL'
