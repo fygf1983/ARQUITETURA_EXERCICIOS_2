@@ -1,30 +1,74 @@
+"""Funções de segurança do Core Box (autenticação, hash, JWT)."""
+import datetime
+import functools
 import hashlib
+
+import jwt
+from flask import current_app, g, request, jsonify, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 
-def hash_senha(senha: str) -> str:
-    """
-    Gera um hash seguro para senhas (mitigando TM-12 com PBKDF2/Scrypt).
-    """
+from app.db import get_db
+
+
+def hash_senha(senha):
+    # TM-12: Mitigado com PBKDF2/Scrypt nativo do Werkzeug
     return generate_password_hash(senha)
 
-# Alias caso algum outro módulo chame pelo nome alternativo
-gerar_hash_senha = hash_senha
 
-def verificar_senha(senha: str, senha_hash: str) -> bool:
-    """
-    Verifica a senha digitada contra o hash do banco.
-    Suporta hashes seguros do Werkzeug e mantém fallback para MD5 legado.
-    """
+def verificar_senha(senha, senha_hash):
     if not senha_hash:
         return False
-
-    # Se o hash no banco for do Werkzeug (pbkdf2 ou scrypt)
     if senha_hash.startswith(("pbkdf2:", "scrypt:")):
         return check_password_hash(senha_hash, senha)
+    # Fallback para hashes MD5 legados (TM-12 documentado no EXCECOES.md)
+    return hashlib.md5(senha.encode()).hexdigest() == senha_hash  # nosemgrep
 
-    # Fallback para senhas legadas em MD5 (TM-12 documentado no EXCECOES.md)
-    md5_legado = hashlib.md5(senha.encode()).hexdigest()  # nosemgrep
-    if senha_hash.startswith("md5$"):
-        return check_password_hash(senha_hash, md5_legado)  # nosemgrep
 
-    return senha_hash == md5_legado  # nosemgrep
+def emitir_token(usuario):
+    agora = datetime.datetime.utcnow()
+    payload = {
+        "sub": str(usuario["id"]),
+        "cpf": usuario["cpf"],
+        "nome": usuario["nome"],
+        "perfil": usuario["perfil"],
+        "iat": agora,
+        "exp": agora + datetime.timedelta(hours=current_app.config["JWT_EXPIRACAO_HORAS"]),
+    }
+    token = jwt.encode(payload, current_app.config["JWT_SECRET"], algorithm="HS256")
+    if isinstance(token, bytes):  # compatibilidade PyJWT 1.x
+        token = token.decode()
+    return token
+
+
+def _token_da_requisicao():
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return request.cookies.get("box_token")
+
+
+def usuario_atual():
+    token = _token_da_requisicao()
+    if not token:
+        return None
+    try:
+        dados = jwt.decode(token, current_app.config["JWT_SECRET"], algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+    return get_db().execute("SELECT * FROM usuarios WHERE id = ?", (int(dados["sub"]),)).fetchone()
+
+
+def login_obrigatorio(perfil=None, api=False):
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            usuario = usuario_atual()
+            if usuario is None or (perfil and usuario["perfil"] != perfil):
+                if api or request.path.startswith("/api/"):
+                    return jsonify({"erro": "não autenticado"}), 401
+                destino = "/backoffice/login" if request.path.startswith("/backoffice") else "/login"
+                return redirect(destino)
+            g.usuario = usuario
+            return fn(*args, **kwargs)
+        return wrapper
+    return deco
