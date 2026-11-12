@@ -25,7 +25,7 @@ def verificar_senha(senha, senha_hash):
 
 
 def emitir_token(usuario):
-    agora = datetime.datetime.utcnow()
+    agora = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "sub": str(usuario["id"]),
         "cpf": usuario["cpf"],
@@ -38,6 +38,10 @@ def emitir_token(usuario):
     if isinstance(token, bytes):  # compatibilidade PyJWT 1.x
         token = token.decode()
     return token
+
+
+# Alias para manter compatibilidade com app/auth.py
+gerar_token_jwt = emitir_token
 
 
 def _token_da_requisicao():
