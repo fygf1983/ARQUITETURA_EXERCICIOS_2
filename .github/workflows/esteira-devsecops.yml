@@ -144,7 +144,7 @@ jobs:
   etapa-7-homologacao-zap:
     name: "07. Homologação & DAST (ZAP)"
     runs-on: ubuntu-latest
-    needs: [etapa-6-trivy-image]
+    needs: [etapa-5-docker-build, etapa-6-trivy-image]
     steps:
       - name: Subir container para homologação
         run: |
@@ -160,12 +160,12 @@ jobs:
         if: always()
         with:
           name: homologacao-zap
-          path: ${{ steps.zaproxy.outputs.report }}
+          path: report.html
 
   etapa-8-deploy:
     name: "08. Aprovação & Produção (VPS)"
     runs-on: ubuntu-latest
-    needs: [etapa-7-homologacao-zap]
+    needs: [etapa-5-docker-build, etapa-7-homologacao-zap]
     environment: producao
     steps:
       - uses: actions/checkout@v4
