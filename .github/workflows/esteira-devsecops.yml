@@ -144,6 +144,9 @@ jobs:
   etapa-7-homologacao-zap:
     name: "07. Homologação & DAST (ZAP)"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     needs: [etapa-5-docker-build, etapa-6-trivy-image]
     steps:
       - name: Subir container para homologação
@@ -160,7 +163,7 @@ jobs:
         if: always()
         with:
           name: homologacao-zap
-          path: report.html
+          path: report_html.html
 
   etapa-8-deploy:
     name: "08. Aprovação & Produção (VPS)"
