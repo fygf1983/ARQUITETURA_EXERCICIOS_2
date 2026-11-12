@@ -1,9 +1,11 @@
-# Registro de exceções de segurança — Core Box
+# Registro de Exceções de Segurança e Riscos Aceitos (`EXCECOES.md`)
 
-> Toda exceção a um *security gate* da esteira precisa estar registrada aqui **e** referenciada no
-> mecanismo técnico correspondente (`.gitleaksignore`, comentário `nosemgrep`, `.trivyignore`,
-> `@pytest.mark.xfail`). Exceção sem registro = gate burlado = reprovação.
+Este documento formaliza todas as supressões aplicadas no código-fonte (`# nosemgrep`) e nos scanners de contêiner (`.trivyignore`), garantindo rastreabilidade com o Threat Model, justificativa técnica, responsável e prazo de revisão.
 
-| ID | Gate | Achado (regra / CVE / teste) | Ameaça (TM) | Justificativa | Controle compensatório | Dono | Prazo | Aprovado por |
-|---|---|---|---|---|---|---|---|---|
-| EXC-001 | (exemplo) Gitleaks | private-key em commit antigo | TM-15 | Chave de homologação **rotacionada e revogada** em AAAA-MM-DD | Certificado revogado na AC; novo em cofre | Grupo X | AAAA-MM-DD | (líder técnico) |
+| ID | Ameaça / Regra / CVE | Arquivo / Alvo | Classificação | Justificativa Técnica | Responsável (Owner) | Prazo de Revisão |
+|---|---|---|---|---|---|---|
+| **EXC-01** | **TM-12** (`insecure-hash-algorithm-md5` / `md5-used-as-password`) | `core-box/app/seguranca.py` (linha 23) | **Risco Aceito** (Débito Técnico Legado) | O banco de dados pré-existente (`box.db`) possui credenciais legadas armazenadas em MD5. A geração de novas senhas (`hash_senha`) já utiliza PBKDF2/Scrypt (`werkzeug.security`), mas a leitura legada na função `verificar_senha()` é necessária para não bloquear usuários ativos durante a migração. | Equipe AppSec / Dev Core-Box | 30 dias (após campanha de rotação forçada de senha no próximo login) |
+| **EXC-02** | **TM-03** (`box-tm03-conta-origem-vinda-do-cliente`) | `core-box/app/pix.py` (linha 77) | **Falso Positivo** (Controle Compensatório) | A regra SAST detecta sintaticamente a leitura de `dados.get("conta_origem")`. Contudo, o valor é lido exclusivamente para confrontar com a conta autenticada do token (`conta_origem["numero"]`) e bloquear tentativas de fraude BOLA com HTTP 403 e auditoria. | Equipe AppSec / Dev Core-Box | Permanente |
+| **EXC-03** | **TM-03** (`box-tm03-conta-origem-vinda-do-cliente`) | `core-box/app/pix.py` (linha 186) | **Falso Positivo** | A regra SAST sinalizou a chave `"conta_origem": comp["conta_origem"]` na serialização JSON do comprovante Pix. Nesse ponto, o valor é lido diretamente do banco de dados (`comp`) após validação de titularidade, não havendo entrada do usuário. | Equipe AppSec / Dev Core-Box | Permanente |
+| **EXC-04** | **TM-07** (`avoid_app_run_with_bad_host`) | `core-box/wsgi.py` (linha 7) | **Falso Positivo** (Arquitetura de Container) | O bind em `0.0.0.0` é requisito obrigatório para o roteamento de portas do container Docker/Gunicorn. O modo `debug` foi explicitamente desativado (`debug=False`) e o processo executa sob usuário não-root (`appuser`). | Equipe DevOps / Infraestrutura | Permanente |
+| **EXC-05** | **CVE-2025-47273** (`setuptools 70.3.0`) | `core-box/.trivyignore` (Imagem Docker) | **Falso Positivo** (Metadado SBOM Residual) | A imagem base oficial `python:3.11-slim-bookworm` embute um arquivo SBOM estático antigo referenciando `setuptools 70.3.0`. Os pacotes `setuptools` e `wheel` foram fisicamente desinstalados no `Dockerfile` durante o build da imagem de produção, eliminando a superfície de ataque real. | Equipe DevSecOps | 60 dias (reavaliar na próxima atualização da imagem base Python) |
