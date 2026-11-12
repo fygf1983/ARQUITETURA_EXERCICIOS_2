@@ -74,7 +74,7 @@ def transferir_pix():
 
     # >>> CORREÇÃO TM-03 (BOLA / CWE-639): Impede que o usuário autenticado debite conta de terceiros
     # Se 'conta_origem' for enviada no payload e não pertencer ao usuário do token, recusa com HTTP 403
-    conta_origem_req = (dados.get("conta_origem") or "").strip()  # nosemgrep: box-tm03-conta-origem-vinda-do-cliente
+    conta_origem_req = (dados.get("conta_origem") or "").strip()  # nosemgrep
     if conta_origem_req and conta_origem_req != conta_origem["numero"]:
         auditoria.registrar(g.usuario["cpf"], "PIX_BOLA_TENTATIVA", {"conta_alvo": conta_origem_req})
         return jsonify({"erro": "Não autorizado a movimentar conta de terceiro."}), 403
