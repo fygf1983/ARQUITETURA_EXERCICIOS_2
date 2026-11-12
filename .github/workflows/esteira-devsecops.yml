@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Executar Trivy (FS)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: './core-box'
@@ -129,7 +129,7 @@ jobs:
     needs: [etapa-5-docker-build]
     steps:
       - name: Executar Trivy Image Scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}'
           format: 'table'
