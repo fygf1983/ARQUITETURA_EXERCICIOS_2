@@ -11,15 +11,12 @@ RUN useradd -u 1000 appuser && mkdir /app && chown appuser:appuser /app
 
 WORKDIR /app
 
-# Atualiza pip e remove setuptools/wheel antigos do ensurepip para evitar CVEs de build tools
-RUN pip install --no-cache-dir --upgrade pip && \
-    rm -rf /usr/local/lib/python3.11/ensurepip/_bundled/setuptools* /usr/local/lib/python3.11/ensurepip/_bundled/wheel*
-
-# Copia seletivamente os requisitos e instala as dependências sem utilitários extras
+# Instala dependencias e usa forca bruta para destruir pastas residuais de setuptools e wheel
 COPY --chown=appuser:appuser requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y setuptools wheel || true && \
-    find / -xdev \( -name "*sbom*" -o -name "*spdx*" \) -delete 2>/dev/null || true
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    find /usr/local -depth -type d -name "*setuptools*" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local -depth -type d -name "*wheel*" -exec rm -rf {} + 2>/dev/null || true
 
 # Copia o restante do código da aplicação
 COPY --chown=appuser:appuser . .
