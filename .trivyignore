@@ -1,3 +1,3 @@
-# CVE-2025-47273: Metadado SBOM residual da imagem base python:3.11-slim-bookworm.
-# O pacote setuptools foi fisicamente removido da imagem de producao no Dockerfile.
+# CVE-2025-47273: Falso positivo vindo do arquivo SBOM residual (.cdx.json) da imagem python:3.11-slim-bookworm.
+# O pacote setuptools foi desinstalado da imagem em producao no Dockerfile.
 CVE-2025-47273
