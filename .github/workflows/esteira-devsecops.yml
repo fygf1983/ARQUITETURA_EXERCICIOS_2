@@ -155,7 +155,6 @@ jobs:
           sleep 10
       - name: Executar OWASP ZAP Baseline Scan
         - name: Ajustar permissoes para o ZAP
-        run: sudo chmod -R 777 .
       - uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8000/health'
