@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   packages: write
+  issues: write
 
 jobs:
   etapa-1-gitleaks:
@@ -23,12 +24,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publicar Relatório Gitleaks
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: relatorio-gitleaks
-          path: gitleaks-report.json
 
   etapa-2-semgrep:
     name: "02. SAST (Semgrep)"
@@ -46,12 +41,6 @@ jobs:
             ./core-box/.semgrep/
         env:
           SEMGREP_METRICS: "0"
-      - name: Publicar Relatório Semgrep
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: relatorio-semgrep
-          path: semgrep.json
 
   etapa-3-build-testes:
     name: "03. Build & Testes (Pytest)"
@@ -129,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [etapa-5-docker-build]
     steps:
-      - name: Executar Trivy Image Scan
+      - name: Preparar supressao de falso positivo SBOM
         run: echo "CVE-2025-47273" > /tmp/.trivyignore
       - name: Executa Trivy Image Scan
         uses: aquasecurity/trivy-action@master
@@ -144,27 +133,29 @@ jobs:
   etapa-7-homologacao-zap:
     name: "07. Homologação & DAST (ZAP)"
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
     needs: [etapa-5-docker-build, etapa-6-trivy-image]
     steps:
       - name: Subir container para homologação
         run: |
-          docker run -d -p 8000:8000 ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
-          sleep 10
+          docker run -d --name core-box-homolog -p 8000:8000 \
+            -e BOX_JWT_SECRET="homolog-jwt-secret-key-32-bytes-ok" \
+            -e BOX_SECRET_KEY="homolog-flask-secret-key-32-bytes" \
+            ${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}
+          sleep 8
       - name: Executar OWASP ZAP Baseline Scan
-        - name: Ajustar permissoes para o ZAP
-      - uses: zaproxy/action-baseline@v0.12.0
-        with:
-          target: 'http://localhost:8000/health'
-          fail_action: false
+        run: |
+          mkdir -p zap-wrk && chmod 777 zap-wrk
+          docker run --rm --network=host \
+            -v $(pwd)/zap-wrk:/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://localhost:8000/health \
+            -J report_json.json -w report_md.md -r report_html.html -I || true
       - name: Publicar Relatório ZAP
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: homologacao-zap
-          path: report_html.html
+          path: zap-wrk/
 
   etapa-8-deploy:
     name: "08. Aprovação & Produção (VPS)"
@@ -185,14 +176,14 @@ jobs:
           scp -r deploy/docker-compose.prod.yml deploy/deploy.sh admin@${{ vars.PROD_HOST }}:/opt/core-box/
       - name: Executar Deploy na VPS
         run: |
-          ssh admin@${{ vars.PROD_HOST }} << 'EOF'
+          ssh admin@${{ vars.PROD_HOST }} << 'EOF_SSH'
             cd /opt/core-box
             export IMAGEM="${{ needs.etapa-5-docker-build.outputs.image_tag }}@${{ needs.etapa-5-docker-build.outputs.image_digest }}"
             export BOX_JWT_SECRET="${{ secrets.BOX_JWT_SECRET }}"
             export BOX_SECRET_KEY="${{ secrets.BOX_SECRET_KEY }}"
             chmod +x ./deploy.sh
             ./deploy.sh
-          EOF
+          EOF_SSH
       - name: Smoke Test em Produção
         run: |
           curl -f http://${{ vars.PROD_HOST }}/health
